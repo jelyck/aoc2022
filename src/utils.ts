@@ -12,5 +12,5 @@ export async function getDataForDay (day: number) {
     throw new Error(await response.text())
   }
 
-  return await response.text()
+  return (await response.text()).trim()
 }
