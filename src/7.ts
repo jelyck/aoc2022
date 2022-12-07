@@ -2,59 +2,24 @@ import { getDataForDay } from './utils'
 
 const data = await getDataForDay(7)
 
-// const data = `$ cd /
-// $ ls
-// dir a
-// 14848514 b.txt
-// 8504156 c.dat
-// dir d
-// $ cd a
-// $ ls
-// dir e
-// 29116 f
-// 2557 g
-// 62596 h.lst
-// $ cd e
-// $ ls
-// 584 i
-// $ cd ..
-// $ cd ..
-// $ cd d
-// $ ls
-// 4060174 j
-// 8033020 d.log
-// 5626152 d.ext
-// 7214296 k`
-
 const createFlatTree = () => {
   let currentDir = []
+  const currentPath = () => currentDir.join('/')
 
-  return data.split('\n').reduce((tree, line, index, array) => {
+  return data.split('\n').reduce((tree, line) => {
     if (line.startsWith('$ cd')) {
       const dir = line.split(' ')[2]
       if (dir === '..') {
         currentDir.pop()
       } else {
         currentDir.push(dir)
-
-        // Parse LS output for current dir
-        const currentPath = currentDir.join('/')
-        const outputStart =
-          array.slice(index).findIndex(x => x.startsWith('$ ls')) + index + 1
-        let outputEnd = array
-          .slice(outputStart)
-          .findIndex(x => x.startsWith('$'))
-        outputEnd = outputEnd === -1 ? array.length : outputStart + outputEnd
-        const filesInPath = array.slice(outputStart, outputEnd).map(file => {
-          if (file.startsWith('dir')) {
-            return currentPath + file.replace('dir ', '/')
-          }
-          return file
-        })
-
-        return Object.assign(tree, {
-          [currentPath]: filesInPath
-        })
+        tree[currentPath()] = []
+      }
+    } else if (!line.startsWith('$')) {
+      if (line.startsWith('dir')) {
+        tree[currentPath()].push(currentPath() + line.replace('dir ', '/'))
+      } else {
+        tree[currentPath()].push(line)
       }
     }
     return tree
