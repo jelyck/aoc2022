@@ -3,38 +3,15 @@ import { getDataForDay } from './utils'
 
 const data = await getDataForDay(11)
 
-// const data = `Monkey 0:
-// Starting items: 79, 98
-// Operation: new = old * 19
-// Test: divisible by 23
-//   If true: throw to monkey 2
-//   If false: throw to monkey 3
+const calcMonkeyBussiness = rounds => {
+  let monkeys: MonkeyWorld.Monkey[]
+  if (rounds > 20) {
+    monkeys = createCrazyMonkeys()
+  } else {
+    monkeys = createNormalMonkeys()
+  }
 
-// Monkey 1:
-// Starting items: 54, 65, 75, 74
-// Operation: new = old + 6
-// Test: divisible by 19
-//   If true: throw to monkey 2
-//   If false: throw to monkey 0
-
-// Monkey 2:
-// Starting items: 79, 60, 97
-// Operation: new = old * old
-// Test: divisible by 13
-//   If true: throw to monkey 1
-//   If false: throw to monkey 3
-
-// Monkey 3:
-// Starting items: 74
-// Operation: new = old + 3
-// Test: divisible by 17
-//   If true: throw to monkey 0
-//   If false: throw to monkey 1`
-
-const solveTasks = () => {
-  const monkeys = parseMonkeys(data)
-
-  range(0, 20).forEach(round => {
+  range(0, rounds).forEach(() => {
     monkeys.forEach(monkey => {
       const numItems = monkey.items.length
       for (let i = 0; i < numItems; i++) {
@@ -48,7 +25,27 @@ const solveTasks = () => {
   return monkeys[0].inspections * monkeys[1].inspections
 }
 
-const parseMonkeys = (data: string): Monkey[] => {
+const createCrazyMonkeys = () => {
+  const monkeyData = parseMonkeyData(data)
+
+  // https://en.wikipedia.org/wiki/Least_common_multiple
+  // https://stackoverflow.com/a/49722579
+  const gcdf = (a, b) => (a ? gcdf(b % a, a) : b)
+  const lcmf = (a, b) => (a * b) / gcdf(a, b)
+  const lcm = monkeyData.map(x => x.test.divide).reduce(lcmf)
+
+  return monkeyData.map(x =>
+    MonkeyWorld.MonkeyFactory.create(x.items, x.operation, x.test, lcm)
+  )
+}
+
+const createNormalMonkeys = () => {
+  return parseMonkeyData(data).map(x =>
+    MonkeyWorld.MonkeyFactory.create(x.items, x.operation, x.test)
+  )
+}
+
+const parseMonkeyData = data => {
   return data.split('\n\n').map((monkey: string) => {
     const regex = /items:\s+(.*)\n.*:.*=(.*)\n.*\s+(\d+)\n.*\s+(\d+)\n.*\s+(\d+)/m
     const group = monkey.match(regex)
@@ -57,12 +54,14 @@ const parseMonkeys = (data: string): Monkey[] => {
       .trim()
       .split(',')
       .map(v => Number(v.trim()))
+
     const [left, operator, right] = group[2].trim().split(' ')
     const operation = {
       left,
       right,
       operator
     }
+
     const test = {
       divide: Number(group[3].trim()),
       action: {
@@ -71,104 +70,154 @@ const parseMonkeys = (data: string): Monkey[] => {
       }
     }
 
-    return MonkeyFactory.create(items, operation, test)
+    return { items, operation, test }
   })
 }
 
-interface Monkey {
-  id: number
-  items: number[]
-  inspections: number
-  operation: Operation
-  test: Test
-}
+namespace MonkeyWorld {
+  export interface Monkey {
+    id: number
+    items: number[]
+    inspections: number
+    operation: Operation
+    test: Test
+    lcm?: number
 
-type Operation = {
-  left: number | string
-  right: number | string
-  operator: string
-}
-
-type Test = {
-  divide: number
-  action: {
-    true: number
-    false: number
-  }
-}
-
-class Monkey {
-  constructor (id, items, operation, test) {
-    this.id = id
-    this.items = items
-    this.inspections = 0
-    this.operation = operation
-    this.test = test
+    inspectItem(): Throw
+    increaseWorry(item: number): number
+    reduceWorry(item: number): number
+    throwItem(item: number): Throw
+    catchItem(item: number): void
   }
 
-  inspectItem () {
-    this.inspections++
-    const item = this.items.shift()
-    console.log(`Monkey ${this.id} inspects item with worry level ${item}`)
-    const inspectedItem = this.updateWorry(item)
-    // console.log(inspectedItem)
-    return this.throwItem(inspectedItem)
+  export type Operation = {
+    left: number | string
+    right: number | string
+    operator: string
   }
 
-  updateWorry (item): number {
-    const left =
-      this.operation.left === 'old' ? item : Number(this.operation.left)
-    const right =
-      this.operation.right === 'old' ? item : Number(this.operation.right)
-    const operator = this.operation.operator
-
-    if (operator === '+') {
-      item = left + right
-      console.log(`  Worry level increases by ${right} to ${item}.`)
-    } else if (operator === '*') {
-      item = left * right
-      console.log(`  Worry level is multiplied by ${right} to ${item}.`)
-    } else throw new Error('Unkown operator.')
-
-    item = Math.floor(item / 3)
-    console.log(`  Monkey gets bored. Worry level is divided by 3 to ${item}.`)
-    return item
-  }
-
-  throwItem (item: number): { item: number; throwTo: number } {
-    let throwTo: number
-    if (item % this.test.divide === 0) {
-      throwTo = this.test.action.true
-      console.log(`  Current worry level is divisible by ${this.test.divide}.`)
-    } else {
-      throwTo = this.test.action.false
-      console.log(
-        `  Current worry level is not divisible by ${this.test.divide}.`
-      )
+  export type Test = {
+    divide: number
+    action: {
+      true: number
+      false: number
     }
-    console.log(
-      `  Item with worry level ${item} is thrown to monkey ${throwTo}.`
-    )
-    return { item, throwTo }
   }
 
-  catchItem (item) {
-    this.items.push(item)
+  export type Throw = {
+    item: number
+    throwTo: number
+  }
+
+  export abstract class Monkey implements Monkey {
+    protected constructor (
+      id: number,
+      items: number[],
+      operation: Operation,
+      test: Test
+    ) {
+      this.id = id
+      this.items = items
+      this.inspections = 0
+      this.operation = operation
+      this.test = test
+    }
+
+    inspectItem (): Throw {
+      this.inspections++
+      let item = this.items.shift()
+      item = this.increaseWorry(item)
+      item = this.reduceWorry(item)
+      return this.throwItem(item)
+    }
+
+    increaseWorry (item: number): number {
+      const left =
+        this.operation.left === 'old' ? item : Number(this.operation.left)
+      const right =
+        this.operation.right === 'old' ? item : Number(this.operation.right)
+
+      if (this.operation.operator === '+') {
+        item = left + right
+      } else if (this.operation.operator === '*') {
+        item = left * right
+      } else throw new Error('Unkown operator.')
+
+      return item
+    }
+
+    throwItem (item: number): Throw {
+      if (item % this.test.divide === 0) {
+        return { item, throwTo: this.test.action.true }
+      } else {
+        return { item, throwTo: this.test.action.false }
+      }
+    }
+
+    catchItem (item: number): void {
+      this.items.push(item)
+    }
+  }
+
+  class NormalMonkey extends Monkey implements Monkey {
+    constructor (
+      id: number,
+      items: number[],
+      operation: Operation,
+      test: Test
+    ) {
+      super(id, items, operation, test)
+    }
+
+    reduceWorry (item: number): number {
+      return Math.floor(item / 3)
+    }
+  }
+
+  class CrazyMonkey extends Monkey implements Monkey {
+    lcm: number
+
+    constructor (
+      id: number,
+      items: number[],
+      operation: Operation,
+      test: Test,
+      lcm: number
+    ) {
+      super(id, items, operation, test)
+      this.lcm = lcm
+    }
+
+    reduceWorry (item: number): number {
+      return item > this.lcm ? item % this.lcm : item
+    }
+  }
+
+  export abstract class MonkeyFactory {
+    static numMonkeys = 0
+    static maxMonkeys = 16
+
+    static create (
+      items: number[],
+      operation: Operation,
+      test: Test,
+      lcm?: number
+    ): Monkey {
+      if (this.numMonkeys >= this.maxMonkeys)
+        throw new Error(`Maximum of ${this.maxMonkeys} monkeys already exists.`)
+
+      let monkey: Monkey
+      if (lcm) {
+        monkey = new CrazyMonkey(this.numMonkeys, items, operation, test, lcm)
+      } else {
+        monkey = new NormalMonkey(this.numMonkeys, items, operation, test)
+      }
+
+      this.numMonkeys++
+      return monkey
+    }
   }
 }
 
-// Seems a bit useless...
-abstract class MonkeyFactory {
-  static monkeyCounter: number = 0
-  static maxMonkeys: number = 8
-
-  static create (items: number[], operation: Operation, test: Test): Monkey {
-    if (this.monkeyCounter >= this.maxMonkeys)
-      throw new Error(`Maximum of ${this.maxMonkeys} monkeys already exists.`)
-    const monkey = new Monkey(this.monkeyCounter, items, operation, test)
-    this.monkeyCounter++
-    return monkey
-  }
-}
-
-console.log(solveTasks())
+console.log('Answer part 1: ', calcMonkeyBussiness(20))
+console.log('Answer part 2: ', calcMonkeyBussiness(10000))
