@@ -151,23 +151,22 @@ const plotPath = (map, path) => {
     .map((_, i, a) => a.filter(r => Number(r) === i).map(() => '.'))
     .filter(x => x.length)
 
-  path
-    .map((xy, index, path) => {
-      if (index === 0) return { pos: xy, char: 'S' }
-      if (index === path.length - 1) return { pos: xy, char: 'E' }
+  path.forEach((xy, index, path) => {
+    const [x, y] = xy.split(':')
 
-      const [x, y] = xy.split(':')
+    if (index === 0) {
+      plot[x][y] = 'S'
+    } else if (index === path.length - 1) {
+      plot[x][y] = 'E'
+    } else {
       const [i, j] = path[index + 1].split(':')
 
-      if (i > Number(x)) return { pos: xy, char: 'v' }
-      if (i < Number(x)) return { pos: xy, char: '^' }
-      if (j > Number(y)) return { pos: xy, char: '>' }
-      if (j < Number(y)) return { pos: xy, char: '<' }
-    })
-    .forEach(square => {
-      const [row, col] = square.pos.split(':')
-      plot[row][col] = square.char
-    })
+      if (i > Number(x)) plot[x][y] = 'v'
+      else if (i < Number(x)) plot[x][y] = '^'
+      else if (j > Number(y)) plot[x][y] = '>'
+      else if (j < Number(y)) plot[x][y] = '<'
+    }
+  })
 
   console.log(plot.map(x => x.join(' ')).join('\n') + '\n')
 }
