@@ -14,7 +14,7 @@ type Position = {
   y: number
 }
 
-type SearchInterval = { min: 0; max: 4000000 }
+type SearchInterval = { min: number; max: number }
 
 const task = (positions: SensorReport[], y: number) => {
   const uniquePositions = checkPositions(positions, y)
