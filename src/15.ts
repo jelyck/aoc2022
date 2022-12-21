@@ -90,7 +90,7 @@ const checkPositions = (positions: SensorReport[], y: number): Set<number> => {
     const distanceRemain = position.d - distanceToRow
 
     // Only rows that reach are relevant.
-    if (distanceRemain > 0) {
+    if (distanceRemain >= 0) {
       range(
         position.sx - distanceRemain,
         position.sx + distanceRemain + 1
