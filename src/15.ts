@@ -45,15 +45,18 @@ const searchAdjencyForEmpty = (
       const distanceToRow = Math.abs(position.sy - y)
       const distanceRemain = position.d - distanceToRow
 
-      // Increase with one to check outside left/right
-      // Will also check the outside beneath and above
-      const lPos = { x: position.sx - distanceRemain - 1, y }
-      const rPos = { x: position.sx + distanceRemain + 1, y }
+      // Can be one y outside
+      if (distanceRemain >= -1) {
+        // Increase with one to check outside left/right
+        // Will also check the outside beneath and above
+        const lPos = { x: position.sx - distanceRemain - 1, y }
+        const rPos = { x: position.sx + distanceRemain + 1, y }
 
-      // Only check squares within interval
-      if (lPos.x >= search.min && rPos.x <= search.max) {
-        if (!isSquareCoveredBySensor(positions, lPos)) return lPos
-        if (!isSquareCoveredBySensor(positions, rPos)) return rPos
+        // Only check squares within interval
+        if (lPos.x >= search.min && rPos.x <= search.max) {
+          if (!isSquareCoveredBySensor(positions, lPos)) return lPos
+          if (!isSquareCoveredBySensor(positions, rPos)) return rPos
+        }
       }
     }
   }
